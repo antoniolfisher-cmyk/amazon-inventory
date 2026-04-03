@@ -477,42 +477,111 @@ function handleCsvImport(e) {
   if (!file) return;
   const reader = new FileReader();
   reader.onload = ev => {
-    const lines = ev.target.result.split('\n').filter(l => l.trim());
-    if (lines.length < 2) return;
-    const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, '').toLowerCase());
-    let added = 0;
+    let text = ev.target.result;
+    // Strip BOM if present
+    if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+    // Normalize line endings
+    text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    const lines = text.split('\n').filter(l => l.trim());
+
+    if (lines.length < 2) {
+      alert('Import failed: the file appears to be empty or has only a header row.');
+      csvFileInput.value = '';
+      return;
+    }
+
+    // Auto-detect delimiter: Amazon SC exports are tab-delimited; check first line
+    const delim = lines[0].includes('\t') ? '\t' : ',';
+
+    const rawHeaders = parseLine(lines[0], delim);
+    const headers = rawHeaders.map(h => h.trim().toLowerCase()
+      .replace(/[^a-z0-9]/g, '') // strip all non-alphanumeric for fuzzy matching
+    );
+
+    // Column name aliases — maps our internal key → possible column name variants (normalized)
+    const aliases = {
+      name:         ['name','itemname','title','productname','listingname'],
+      asin:         ['asin','asin1','asincode'],
+      sku:          ['sku','sellersku','merchantsku','msku'],
+      category:     ['category','producttype','itemtype','productcategory'],
+      fulfillment:  ['fulfillment','fulfillmentchannel','fulfillmenttype','channel','merchantfulfillmentchannel'],
+      quantity:     ['quantity','qty','quantityavailable','afnlistingexists','quantityinstock','sellableunits','available'],
+      reorderPoint: ['reorderpoint','reorderat','reorder','reorderqty'],
+      price:        ['price','saleprice','listingprice','yourprice','sellingprice'],
+      cost:         ['cost','unitcost','landedcost','cogs'],
+      status:       ['status','listingstatus','condition'],
+      notes:        ['notes','note','comments','description','memo'],
+    };
+
+    // Build column index map
+    const colMap = {};
+    for (const [field, variants] of Object.entries(aliases)) {
+      for (const v of variants) {
+        const idx = headers.indexOf(v);
+        if (idx !== -1) { colMap[field] = idx; break; }
+      }
+    }
+
+    // Check required fields found
+    const missing = ['name','asin','sku'].filter(f => colMap[f] === undefined);
+    if (missing.length > 0) {
+      const found = rawHeaders.join(', ');
+      alert(`Import failed: could not find required columns: ${missing.join(', ')}.\n\nColumns detected in your file:\n${found}\n\nExpected columns (or Amazon equivalents): Name/item-name, ASIN/asin1, SKU/seller-sku.`);
+      csvFileInput.value = '';
+      return;
+    }
+
+    const get = (row, field) => (row[colMap[field]] || '').trim();
+
+    let added = 0, skipped = 0;
     for (let i = 1; i < lines.length; i++) {
-      const vals = parseCsvLine(lines[i]);
-      const row = {};
-      headers.forEach((h, idx) => { row[h] = (vals[idx] || '').trim(); });
-      if (!row.name || !row.asin || !row.sku) continue;
+      const vals = parseLine(lines[i], delim);
+      const name = get(vals, 'name');
+      const asin = get(vals, 'asin');
+      const sku  = get(vals, 'sku');
+      if (!name || !asin || !sku) { skipped++; continue; }
+
+      const fulfillRaw = get(vals, 'fulfillment').toUpperCase();
+      const fulfillment = fulfillRaw.includes('MFN') || fulfillRaw === 'FBM' || fulfillRaw.includes('MERCHANT') ? 'FBM' : 'FBA';
+
       products.unshift({
         id: uid(),
-        name: row.name,
-        asin: row.asin.toUpperCase(),
-        sku: row.sku,
-        category: row.category || '',
-        fulfillment: row.fulfillment === 'FBM' ? 'FBM' : 'FBA',
-        quantity: parseInt(row.quantity) || 0,
-        reorderPoint: parseInt(row.reorderpoint || row['reorder point'] || row.reorder_point) || 0,
-        price: parseFloat(row.price) || 0,
-        cost: parseFloat(row.cost) || 0,
-        status: row.status === 'inactive' ? 'inactive' : 'active',
-        notes: row.notes || '',
+        name,
+        asin: asin.toUpperCase(),
+        sku,
+        category: get(vals, 'category'),
+        fulfillment,
+        quantity: parseInt(get(vals, 'quantity')) || 0,
+        reorderPoint: parseInt(get(vals, 'reorderPoint')) || 0,
+        price: parseFloat(get(vals, 'price')) || 0,
+        cost: parseFloat(get(vals, 'cost')) || 0,
+        status: get(vals, 'status').toLowerCase() === 'inactive' ? 'inactive' : 'active',
+        notes: get(vals, 'notes'),
         createdAt: Date.now(),
         updatedAt: Date.now(),
       });
       added++;
     }
+
     saveProducts();
     applyFilters();
-    alert(`Imported ${added} products successfully.`);
+
+    if (added === 0) {
+      alert(`Import failed: 0 products were imported.\n\n${skipped} rows were skipped (missing Name, ASIN, or SKU values).`);
+    } else {
+      alert(`Successfully imported ${added} product${added !== 1 ? 's' : ''}.${skipped > 0 ? ` (${skipped} rows skipped — missing required fields)` : ''}`);
+    }
     csvFileInput.value = '';
   };
   reader.readAsText(file);
 }
 
-function parseCsvLine(line) {
+function parseLine(line, delim) {
+  if (delim === '\t') {
+    // Tab-delimited: no quoting complexities usually, but handle basic quoted fields
+    return line.split('\t').map(v => v.replace(/^"|"$/g, ''));
+  }
+  // Comma-delimited with full quote handling
   const result = [];
   let cur = '', inQ = false;
   for (let i = 0; i < line.length; i++) {
