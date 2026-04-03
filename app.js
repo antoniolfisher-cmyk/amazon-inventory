@@ -122,7 +122,6 @@ function applyFilters() {
   });
 
   renderStats();
-  renderAlerts();
   renderCategoryFilter();
   renderTable();
   updateSortHeaders();
@@ -145,60 +144,6 @@ function renderStats() {
   document.getElementById('statFBM').textContent = fbmUnits.toLocaleString();
 }
 
-// ── Alerts ────────────────────────────────────────────────────────────────────
-// dismissedAlerts: Map of productId → quantity at time of dismissal
-// Re-shows the alert if the quantity changes (restocked or drops further)
-let dismissedAlerts = {};
-
-function dismissAlert(id) {
-  const p = products.find(x => x.id === id);
-  if (p) dismissedAlerts[id] = p.quantity;
-  renderAlerts();
-}
-
-function dismissAllAlerts() {
-  const outItems = products.filter(p => computedStatus(p) === 'out_of_stock');
-  const lowItems = products.filter(p => computedStatus(p) === 'low_stock');
-  [...outItems, ...lowItems].forEach(p => { dismissedAlerts[p.id] = p.quantity; });
-  renderAlerts();
-}
-
-function renderAlerts() {
-  const banner = document.getElementById('alertsBanner');
-  const outItems = products.filter(p => computedStatus(p) === 'out_of_stock' && dismissedAlerts[p.id] !== p.quantity);
-  const lowItems = products.filter(p => computedStatus(p) === 'low_stock'   && dismissedAlerts[p.id] !== p.quantity);
-
-  if (outItems.length === 0 && lowItems.length === 0) {
-    banner.classList.add('hidden');
-    return;
-  }
-
-  banner.classList.remove('hidden');
-  const hasDanger = outItems.length > 0;
-  banner.classList.toggle('has-danger', hasDanger);
-
-  const label = hasDanger ? '&#9888; Stock Alerts' : '&#9888; Low Stock Warnings';
-  let itemsHtml = '';
-  outItems.forEach(p => {
-    itemsHtml += `<div class="alert-item" data-id="${p.id}">&#10005; ${escHtml(p.name)} &mdash; OUT OF STOCK <button class="alert-dismiss" data-id="${p.id}" title="Dismiss">&times;</button></div>`;
-  });
-  lowItems.forEach(p => {
-    itemsHtml += `<div class="alert-item" data-id="${p.id}">&#9660; ${escHtml(p.name)} &mdash; only ${p.quantity} left <button class="alert-dismiss" data-id="${p.id}" title="Dismiss">&times;</button></div>`;
-  });
-
-  banner.innerHTML = `
-    <div class="alerts-header">
-      <strong>${label}</strong>
-      <button class="btn-dismiss-all" id="dismissAllBtn">Clear All</button>
-    </div>
-    <div class="alerts-items">${itemsHtml}</div>
-  `;
-
-  banner.querySelector('#dismissAllBtn').addEventListener('click', dismissAllAlerts);
-  banner.querySelectorAll('.alert-dismiss').forEach(btn => {
-    btn.addEventListener('click', () => dismissAlert(btn.dataset.id));
-  });
-}
 
 // ── Category Filter ───────────────────────────────────────────────────────────
 function renderCategoryFilter() {
