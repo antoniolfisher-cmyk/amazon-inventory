@@ -28,12 +28,13 @@
 
   <!-- Dashboard Stats -->
   <section class="dashboard">
-    <div class="stat-card">
+    <div class="stat-card stat-clickable" data-filter="all">
       <div class="stat-icon total">&#9783;</div>
       <div class="stat-info">
         <div class="stat-value" id="statTotalSKUs">0</div>
         <div class="stat-label">Total SKUs</div>
       </div>
+      <span class="stat-filter-hint">Show all</span>
     </div>
     <div class="stat-card">
       <div class="stat-icon value">&#36;</div>
@@ -42,33 +43,37 @@
         <div class="stat-label">Total Inventory Value</div>
       </div>
     </div>
-    <div class="stat-card warning">
+    <div class="stat-card warning stat-clickable" data-filter="low_stock">
       <div class="stat-icon low">&#9888;</div>
       <div class="stat-info">
         <div class="stat-value" id="statLowStock">0</div>
         <div class="stat-label">Low Stock</div>
       </div>
+      <span class="stat-filter-hint">Filter</span>
     </div>
-    <div class="stat-card danger">
+    <div class="stat-card danger stat-clickable" data-filter="out_of_stock">
       <div class="stat-icon out">&#10005;</div>
       <div class="stat-info">
         <div class="stat-value" id="statOutOfStock">0</div>
         <div class="stat-label">Out of Stock</div>
       </div>
+      <span class="stat-filter-hint">Filter</span>
     </div>
-    <div class="stat-card">
+    <div class="stat-card stat-clickable" data-filter="FBA">
       <div class="stat-icon fba">F</div>
       <div class="stat-info">
         <div class="stat-value" id="statFBA">0</div>
         <div class="stat-label">FBA Units</div>
       </div>
+      <span class="stat-filter-hint">Filter</span>
     </div>
-    <div class="stat-card">
+    <div class="stat-card stat-clickable" data-filter="FBM">
       <div class="stat-icon fbm">M</div>
       <div class="stat-info">
         <div class="stat-value" id="statFBM">0</div>
         <div class="stat-label">FBM Units</div>
       </div>
+      <span class="stat-filter-hint">Filter</span>
     </div>
   </section>
 

@@ -138,6 +138,30 @@ body {
 .stat-icon.fbm { background: #EDE7F6; color: #6A3CBF; }
 .stat-icon.value { background: var(--yellow-bg); color: var(--yellow); }
 
+.stat-clickable {
+  cursor: pointer;
+  position: relative;
+  transition: box-shadow 0.15s, transform 0.1s;
+}
+.stat-clickable:hover {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  transform: translateY(-1px);
+}
+.stat-clickable.stat-active {
+  box-shadow: 0 0 0 2px var(--amazon-orange), 0 4px 12px rgba(0,0,0,0.15);
+}
+.stat-filter-hint {
+  position: absolute;
+  bottom: 6px;
+  right: 10px;
+  font-size: 10px;
+  color: #aaa;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+.stat-clickable:hover .stat-filter-hint { color: var(--amazon-blue); }
+.stat-clickable.stat-active .stat-filter-hint { color: var(--amazon-orange); }
+
 .stat-value {
   font-size: 22px;
   font-weight: 700;

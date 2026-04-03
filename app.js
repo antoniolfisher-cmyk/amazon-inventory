@@ -83,6 +83,9 @@ function bindEvents() {
   deleteConfirmBtn.addEventListener('click', doDelete);
   modalOverlay.addEventListener('click', e => { if (e.target === modalOverlay) closeModal(); });
   deleteOverlay.addEventListener('click', e => { if (e.target === deleteOverlay) closeDeleteModal(); });
+  document.querySelectorAll('.stat-clickable').forEach(card => {
+    card.addEventListener('click', () => applyStatFilter(card.dataset.filter));
+  });
   document.querySelectorAll('th.sortable').forEach(th => {
     th.addEventListener('click', () => {
       const col = th.dataset.col;
@@ -125,6 +128,33 @@ function applyFilters() {
   renderCategoryFilter();
   renderTable();
   updateSortHeaders();
+}
+
+// ── Stat Card Filters ─────────────────────────────────────────────────────────
+function applyStatFilter(filter) {
+  // Toggle off if already active
+  const current = document.querySelector('.stat-clickable.stat-active');
+  const isActive = current && current.dataset.filter === filter;
+
+  clearFilters();
+
+  if (!isActive) {
+    if (filter === 'all') {
+      // already cleared, just show all
+    } else if (filter === 'FBA' || filter === 'FBM') {
+      filterFulfillment = filter;
+      filterFulfillSel.value = filter;
+    } else {
+      filterStatus = filter;
+      filterStatusSel.value = filter;
+    }
+    currentPage = 1;
+    applyFilters();
+    // Mark card active after re-render
+    document.querySelectorAll('.stat-clickable').forEach(c => {
+      c.classList.toggle('stat-active', c.dataset.filter === filter);
+    });
+  }
 }
 
 // ── Stats ─────────────────────────────────────────────────────────────────────
@@ -418,6 +448,7 @@ function clearFilters() {
   filterFulfillSel.value = '';
   filterCategorySel.value = '';
   currentPage = 1;
+  document.querySelectorAll('.stat-clickable').forEach(c => c.classList.remove('stat-active'));
   applyFilters();
 }
 
