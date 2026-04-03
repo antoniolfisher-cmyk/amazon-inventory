@@ -146,10 +146,27 @@ function renderStats() {
 }
 
 // ── Alerts ────────────────────────────────────────────────────────────────────
-function renderAlerts() {
-  const banner = document.getElementById('alertsBanner');
+// dismissedAlerts: Map of productId → quantity at time of dismissal
+// Re-shows the alert if the quantity changes (restocked or drops further)
+let dismissedAlerts = {};
+
+function dismissAlert(id) {
+  const p = products.find(x => x.id === id);
+  if (p) dismissedAlerts[id] = p.quantity;
+  renderAlerts();
+}
+
+function dismissAllAlerts() {
   const outItems = products.filter(p => computedStatus(p) === 'out_of_stock');
   const lowItems = products.filter(p => computedStatus(p) === 'low_stock');
+  [...outItems, ...lowItems].forEach(p => { dismissedAlerts[p.id] = p.quantity; });
+  renderAlerts();
+}
+
+function renderAlerts() {
+  const banner = document.getElementById('alertsBanner');
+  const outItems = products.filter(p => computedStatus(p) === 'out_of_stock' && dismissedAlerts[p.id] !== p.quantity);
+  const lowItems = products.filter(p => computedStatus(p) === 'low_stock'   && dismissedAlerts[p.id] !== p.quantity);
 
   if (outItems.length === 0 && lowItems.length === 0) {
     banner.classList.add('hidden');
@@ -162,11 +179,12 @@ function renderAlerts() {
 
   let html = '<strong>' + (hasDanger ? '&#9888; Stock Alerts:' : '&#9888; Low Stock Warnings:') + '</strong>';
   outItems.forEach(p => {
-    html += `<span class="alert-item">&#10005; ${escHtml(p.name)} — OUT OF STOCK</span>`;
+    html += `<span class="alert-item">&#10005; ${escHtml(p.name)} — OUT OF STOCK <button class="alert-dismiss" onclick="dismissAlert('${p.id}')" title="Dismiss">&times;</button></span>`;
   });
   lowItems.forEach(p => {
-    html += `<span class="alert-item">&#9660; ${escHtml(p.name)} — only ${p.quantity} left</span>`;
+    html += `<span class="alert-item">&#9660; ${escHtml(p.name)} — only ${p.quantity} left <button class="alert-dismiss" onclick="dismissAlert('${p.id}')" title="Dismiss">&times;</button></span>`;
   });
+  html += `<button class="btn-dismiss-all" onclick="dismissAllAlerts()">Clear All</button>`;
   banner.innerHTML = html;
 }
 
