@@ -146,10 +146,27 @@ function renderStats() {
 }
 
 // ── Alerts ────────────────────────────────────────────────────────────────────
-function renderAlerts() {
-  const banner = document.getElementById('alertsBanner');
+// dismissedAlerts: Map of productId → quantity at time of dismissal
+// Re-shows the alert if the quantity changes (restocked or drops further)
+let dismissedAlerts = {};
+
+function dismissAlert(id) {
+  const p = products.find(x => x.id === id);
+  if (p) dismissedAlerts[id] = p.quantity;
+  renderAlerts();
+}
+
+function dismissAllAlerts() {
   const outItems = products.filter(p => computedStatus(p) === 'out_of_stock');
   const lowItems = products.filter(p => computedStatus(p) === 'low_stock');
+  [...outItems, ...lowItems].forEach(p => { dismissedAlerts[p.id] = p.quantity; });
+  renderAlerts();
+}
+
+function renderAlerts() {
+  const banner = document.getElementById('alertsBanner');
+  const outItems = products.filter(p => computedStatus(p) === 'out_of_stock' && dismissedAlerts[p.id] !== p.quantity);
+  const lowItems = products.filter(p => computedStatus(p) === 'low_stock'   && dismissedAlerts[p.id] !== p.quantity);
 
   if (outItems.length === 0 && lowItems.length === 0) {
     banner.classList.add('hidden');
@@ -160,14 +177,27 @@ function renderAlerts() {
   const hasDanger = outItems.length > 0;
   banner.classList.toggle('has-danger', hasDanger);
 
-  let html = '<strong>' + (hasDanger ? '&#9888; Stock Alerts:' : '&#9888; Low Stock Warnings:') + '</strong>';
+  const label = hasDanger ? '&#9888; Stock Alerts' : '&#9888; Low Stock Warnings';
+  let itemsHtml = '';
   outItems.forEach(p => {
-    html += `<span class="alert-item">&#10005; ${escHtml(p.name)} — OUT OF STOCK</span>`;
+    itemsHtml += `<div class="alert-item" data-id="${p.id}">&#10005; ${escHtml(p.name)} &mdash; OUT OF STOCK <button class="alert-dismiss" data-id="${p.id}" title="Dismiss">&times;</button></div>`;
   });
   lowItems.forEach(p => {
-    html += `<span class="alert-item">&#9660; ${escHtml(p.name)} — only ${p.quantity} left</span>`;
+    itemsHtml += `<div class="alert-item" data-id="${p.id}">&#9660; ${escHtml(p.name)} &mdash; only ${p.quantity} left <button class="alert-dismiss" data-id="${p.id}" title="Dismiss">&times;</button></div>`;
   });
-  banner.innerHTML = html;
+
+  banner.innerHTML = `
+    <div class="alerts-header">
+      <strong>${label}</strong>
+      <button class="btn-dismiss-all" id="dismissAllBtn">Clear All</button>
+    </div>
+    <div class="alerts-items">${itemsHtml}</div>
+  `;
+
+  banner.querySelector('#dismissAllBtn').addEventListener('click', dismissAllAlerts);
+  banner.querySelectorAll('.alert-dismiss').forEach(btn => {
+    btn.addEventListener('click', () => dismissAlert(btn.dataset.id));
+  });
 }
 
 // ── Category Filter ───────────────────────────────────────────────────────────
@@ -474,6 +504,8 @@ function csvCell(val) {
 // ── CSV Import ────────────────────────────────────────────────────────────────
 function handleCsvImport(e) {
   const file = e.target.files[0];
+  // Always reset so re-selecting the same file fires the change event again
+  e.target.value = '';
   if (!file) return;
   const reader = new FileReader();
   reader.onload = ev => {
@@ -486,7 +518,6 @@ function handleCsvImport(e) {
 
     if (lines.length < 2) {
       alert('Import failed: the file appears to be empty or has only a header row.');
-      csvFileInput.value = '';
       return;
     }
 
@@ -527,7 +558,6 @@ function handleCsvImport(e) {
     if (missing.length > 0) {
       const found = rawHeaders.join(', ');
       alert(`Import failed: could not find required columns: ${missing.join(', ')}.\n\nColumns detected in your file:\n${found}\n\nExpected columns (or Amazon equivalents): Name/item-name, ASIN/asin1, SKU/seller-sku.`);
-      csvFileInput.value = '';
       return;
     }
 
@@ -571,7 +601,6 @@ function handleCsvImport(e) {
     } else {
       alert(`Successfully imported ${added} product${added !== 1 ? 's' : ''}.${skipped > 0 ? ` (${skipped} rows skipped — missing required fields)` : ''}`);
     }
-    csvFileInput.value = '';
   };
   reader.readAsText(file);
 }
