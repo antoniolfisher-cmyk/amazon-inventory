@@ -474,6 +474,8 @@ function csvCell(val) {
 // ── CSV Import ────────────────────────────────────────────────────────────────
 function handleCsvImport(e) {
   const file = e.target.files[0];
+  // Always reset so re-selecting the same file fires the change event again
+  e.target.value = '';
   if (!file) return;
   const reader = new FileReader();
   reader.onload = ev => {
@@ -486,7 +488,6 @@ function handleCsvImport(e) {
 
     if (lines.length < 2) {
       alert('Import failed: the file appears to be empty or has only a header row.');
-      csvFileInput.value = '';
       return;
     }
 
@@ -527,7 +528,6 @@ function handleCsvImport(e) {
     if (missing.length > 0) {
       const found = rawHeaders.join(', ');
       alert(`Import failed: could not find required columns: ${missing.join(', ')}.\n\nColumns detected in your file:\n${found}\n\nExpected columns (or Amazon equivalents): Name/item-name, ASIN/asin1, SKU/seller-sku.`);
-      csvFileInput.value = '';
       return;
     }
 
@@ -571,7 +571,6 @@ function handleCsvImport(e) {
     } else {
       alert(`Successfully imported ${added} product${added !== 1 ? 's' : ''}.${skipped > 0 ? ` (${skipped} rows skipped — missing required fields)` : ''}`);
     }
-    csvFileInput.value = '';
   };
   reader.readAsText(file);
 }
