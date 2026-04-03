@@ -177,15 +177,27 @@ function renderAlerts() {
   const hasDanger = outItems.length > 0;
   banner.classList.toggle('has-danger', hasDanger);
 
-  let html = '<strong>' + (hasDanger ? '&#9888; Stock Alerts:' : '&#9888; Low Stock Warnings:') + '</strong>';
+  const label = hasDanger ? '&#9888; Stock Alerts' : '&#9888; Low Stock Warnings';
+  let itemsHtml = '';
   outItems.forEach(p => {
-    html += `<span class="alert-item">&#10005; ${escHtml(p.name)} — OUT OF STOCK <button class="alert-dismiss" onclick="dismissAlert('${p.id}')" title="Dismiss">&times;</button></span>`;
+    itemsHtml += `<div class="alert-item" data-id="${p.id}">&#10005; ${escHtml(p.name)} &mdash; OUT OF STOCK <button class="alert-dismiss" data-id="${p.id}" title="Dismiss">&times;</button></div>`;
   });
   lowItems.forEach(p => {
-    html += `<span class="alert-item">&#9660; ${escHtml(p.name)} — only ${p.quantity} left <button class="alert-dismiss" onclick="dismissAlert('${p.id}')" title="Dismiss">&times;</button></span>`;
+    itemsHtml += `<div class="alert-item" data-id="${p.id}">&#9660; ${escHtml(p.name)} &mdash; only ${p.quantity} left <button class="alert-dismiss" data-id="${p.id}" title="Dismiss">&times;</button></div>`;
   });
-  html += `<button class="btn-dismiss-all" onclick="dismissAllAlerts()">Clear All</button>`;
-  banner.innerHTML = html;
+
+  banner.innerHTML = `
+    <div class="alerts-header">
+      <strong>${label}</strong>
+      <button class="btn-dismiss-all" id="dismissAllBtn">Clear All</button>
+    </div>
+    <div class="alerts-items">${itemsHtml}</div>
+  `;
+
+  banner.querySelector('#dismissAllBtn').addEventListener('click', dismissAllAlerts);
+  banner.querySelectorAll('.alert-dismiss').forEach(btn => {
+    btn.addEventListener('click', () => dismissAlert(btn.dataset.id));
+  });
 }
 
 // ── Category Filter ───────────────────────────────────────────────────────────
