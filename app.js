@@ -32,6 +32,10 @@ const clearFiltersBtn   = document.getElementById('clearFilters');
 const addProductBtn     = document.getElementById('addProductBtn');
 const importBtn         = document.getElementById('importBtn');
 const csvFileInput      = document.getElementById('csvFileInput');
+const importAuraBtn     = document.getElementById('importAuraBtn');
+const auraFileInput     = document.getElementById('auraFileInput');
+const importCogsBtn     = document.getElementById('importCogsBtn');
+const cogsFileInput     = document.getElementById('cogsFileInput');
 const exportBtn         = document.getElementById('exportBtn');
 const pageSizeSelect    = document.getElementById('pageSizeSelect');
 const selectAllChk      = document.getElementById('selectAll');
@@ -69,6 +73,10 @@ function bindEvents() {
   addProductBtn.addEventListener('click', () => openModal(null));
   importBtn.addEventListener('click', () => csvFileInput.click());
   csvFileInput.addEventListener('change', handleCsvImport);
+  importAuraBtn.addEventListener('click', () => auraFileInput.click());
+  auraFileInput.addEventListener('change', handleAuraImport);
+  importCogsBtn.addEventListener('click', () => cogsFileInput.click());
+  cogsFileInput.addEventListener('change', handleCogsImport);
   exportBtn.addEventListener('click', exportCSV);
   pageSizeSelect.addEventListener('change', () => { pageSize = parseInt(pageSizeSelect.value); currentPage = 1; renderTable(); });
   selectAllChk.addEventListener('change', toggleSelectAll);
@@ -237,7 +245,11 @@ function renderTable() {
       <td class="qty-cell ${status === 'out_of_stock' ? 'qty-out' : status === 'low_stock' ? 'qty-low' : ''}">${p.quantity}</td>
       <td style="color:var(--text-muted)">${p.reorderPoint > 0 ? p.reorderPoint : '—'}</td>
       <td>$${p.price.toFixed(2)}</td>
+      <td style="color:var(--text-muted);font-size:12px">${p.minPrice > 0 ? '$' + p.minPrice.toFixed(2) : '—'}</td>
+      <td style="color:var(--text-muted);font-size:12px">${p.maxPrice > 0 ? '$' + p.maxPrice.toFixed(2) : '—'}</td>
+      <td style="font-size:12px">${p.buyBoxPrice > 0 ? '<span class="buybox-price">$' + p.buyBoxPrice.toFixed(2) + '</span>' : '—'}</td>
       <td style="color:var(--text-muted)">${p.cost > 0 ? '$' + p.cost.toFixed(2) : '—'}<br/><span style="font-size:11px;color:#aaa">${margin !== '—' ? 'Margin: ' + margin : ''}</span></td>
+      <td style="font-size:12px;color:var(--text-muted)">${p.strategy ? '<span class="strategy-badge">' + escHtml(p.strategy) + '</span>' : '—'}</td>
       <td>${statusBadge(status, p.status)}</td>
       <td class="actions-cell">
         <button class="btn-icon edit" onclick="openModal('${p.id}')" title="Edit">&#9998;</button>
@@ -345,6 +357,10 @@ function openModal(id) {
   document.getElementById('fieldReorderPoint').value = p ? (p.reorderPoint || '') : '';
   document.getElementById('fieldPrice').value = p ? p.price : '';
   document.getElementById('fieldCost').value = p ? (p.cost || '') : '';
+  document.getElementById('fieldMinPrice').value = p ? (p.minPrice || '') : '';
+  document.getElementById('fieldMaxPrice').value = p ? (p.maxPrice || '') : '';
+  document.getElementById('fieldBuyBoxPrice').value = p ? (p.buyBoxPrice || '') : '';
+  document.getElementById('fieldStrategy').value = p ? (p.strategy || '') : '';
   document.getElementById('fieldStatus').value = p ? p.status : 'active';
   document.getElementById('fieldNotes').value = p ? (p.notes || '') : '';
   modalOverlay.classList.remove('hidden');
@@ -367,6 +383,10 @@ function saveProduct() {
     reorderPoint: parseInt(document.getElementById('fieldReorderPoint').value) || 0,
     price: parseFloat(document.getElementById('fieldPrice').value) || 0,
     cost: parseFloat(document.getElementById('fieldCost').value) || 0,
+    minPrice: parseFloat(document.getElementById('fieldMinPrice').value) || 0,
+    maxPrice: parseFloat(document.getElementById('fieldMaxPrice').value) || 0,
+    buyBoxPrice: parseFloat(document.getElementById('fieldBuyBoxPrice').value) || 0,
+    strategy: document.getElementById('fieldStrategy').value.trim(),
     status: document.getElementById('fieldStatus').value,
     notes: document.getElementById('fieldNotes').value.trim(),
     updatedAt: Date.now(),
@@ -597,6 +617,140 @@ function parseLine(line, delim) {
   }
   result.push(cur);
   return result;
+}
+
+// ── Aura Repricer Import ──────────────────────────────────────────────────────
+function handleAuraImport(e) {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    let text = ev.target.result;
+    if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+    text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    const lines = text.split('\n').filter(l => l.trim());
+    if (lines.length < 2) { alert('Aura import failed: file appears empty.'); return; }
+
+    const delim = lines[0].includes('\t') ? '\t' : ',';
+    const rawHeaders = parseLine(lines[0], delim);
+    const headers = rawHeaders.map(h => h.trim().toLowerCase().replace(/[^a-z0-9]/g, ''));
+
+    const aliases = {
+      sku:          ['sku','sellersku','merchantsku','msku','sellsku'],
+      asin:         ['asin','asin1'],
+      price:        ['currentprice','yourprice','price','listedprice','actualprice'],
+      minPrice:     ['minprice','minimumprice','floor','min','floorprice','minimumlistingprice'],
+      maxPrice:     ['maxprice','maximumprice','ceiling','max','ceilingprice','maximumlistingprice'],
+      buyBoxPrice:  ['buyboxprice','buybprice','bbprice','buybox','currentbuyboxprice','buyboxlistingprice'],
+      strategy:     ['strategy','strategyname','repricerstrategy','repricerid','pricingstrategy'],
+    };
+
+    const colMap = {};
+    for (const [field, variants] of Object.entries(aliases)) {
+      for (const v of variants) {
+        const idx = headers.indexOf(v);
+        if (idx !== -1) { colMap[field] = idx; break; }
+      }
+    }
+
+    if (colMap.sku === undefined && colMap.asin === undefined) {
+      alert(`Aura import failed: could not find SKU or ASIN column.\n\nColumns found: ${rawHeaders.join(', ')}`);
+      return;
+    }
+
+    const get = (row, field) => colMap[field] !== undefined ? (row[colMap[field]] || '').trim() : '';
+
+    let updated = 0, unmatched = 0;
+    for (let i = 1; i < lines.length; i++) {
+      const vals = parseLine(lines[i], delim);
+      const sku  = get(vals, 'sku');
+      const asin = get(vals, 'asin').toUpperCase();
+
+      // Match by SKU first, then ASIN
+      const product = products.find(p => (sku && p.sku === sku) || (asin && p.asin === asin));
+      if (!product) { unmatched++; continue; }
+
+      if (colMap.price     !== undefined) { const v = parseFloat(get(vals,'price'));     if (v > 0) product.price = v; }
+      if (colMap.minPrice  !== undefined) { const v = parseFloat(get(vals,'minPrice'));  if (v > 0) product.minPrice = v; }
+      if (colMap.maxPrice  !== undefined) { const v = parseFloat(get(vals,'maxPrice'));  if (v > 0) product.maxPrice = v; }
+      if (colMap.buyBoxPrice !== undefined) { const v = parseFloat(get(vals,'buyBoxPrice')); if (v > 0) product.buyBoxPrice = v; }
+      if (colMap.strategy  !== undefined) { const s = get(vals,'strategy'); if (s) product.strategy = s; }
+      product.updatedAt = Date.now();
+      updated++;
+    }
+
+    saveProducts();
+    applyFilters();
+    alert(`Aura import complete: ${updated} product${updated !== 1 ? 's' : ''} updated.${unmatched > 0 ? `\n${unmatched} rows had no matching SKU/ASIN in your inventory.` : ''}`);
+  };
+  reader.readAsText(file);
+}
+
+// ── COGS Import ───────────────────────────────────────────────────────────────
+function handleCogsImport(e) {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    let text = ev.target.result;
+    if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+    text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    const lines = text.split('\n').filter(l => l.trim());
+    if (lines.length < 2) { alert('COGS import failed: file appears empty.'); return; }
+
+    const delim = lines[0].includes('\t') ? '\t' : ',';
+    const rawHeaders = parseLine(lines[0], delim);
+    const headers = rawHeaders.map(h => h.trim().toLowerCase().replace(/[^a-z0-9]/g, ''));
+
+    const aliases = {
+      sku:  ['sku','sellersku','merchantsku','msku','itemsku'],
+      asin: ['asin','asin1'],
+      cost: ['cost','unitcost','cogs','landedcost','purchaseprice','productcost','itemcost','costperunit','cogsperunit'],
+    };
+
+    const colMap = {};
+    for (const [field, variants] of Object.entries(aliases)) {
+      for (const v of variants) {
+        const idx = headers.indexOf(v);
+        if (idx !== -1) { colMap[field] = idx; break; }
+      }
+    }
+
+    if (colMap.sku === undefined && colMap.asin === undefined) {
+      alert(`COGS import failed: could not find SKU or ASIN column.\n\nColumns found: ${rawHeaders.join(', ')}`);
+      return;
+    }
+    if (colMap.cost === undefined) {
+      alert(`COGS import failed: could not find a cost column.\n\nColumns found: ${rawHeaders.join(', ')}\n\nExpected: Cost, Unit Cost, COGS, Landed Cost, Purchase Price`);
+      return;
+    }
+
+    const get = (row, field) => colMap[field] !== undefined ? (row[colMap[field]] || '').trim() : '';
+
+    let updated = 0, unmatched = 0;
+    for (let i = 1; i < lines.length; i++) {
+      const vals = parseLine(lines[i], delim);
+      const sku  = get(vals, 'sku');
+      const asin = get(vals, 'asin').toUpperCase();
+      const cost = parseFloat(get(vals, 'cost'));
+
+      if (!cost || cost <= 0) continue;
+
+      const product = products.find(p => (sku && p.sku === sku) || (asin && p.asin === asin));
+      if (!product) { unmatched++; continue; }
+
+      product.cost = cost;
+      product.updatedAt = Date.now();
+      updated++;
+    }
+
+    saveProducts();
+    applyFilters();
+    alert(`COGS import complete: ${updated} product${updated !== 1 ? 's' : ''} updated.${unmatched > 0 ? `\n${unmatched} rows had no matching SKU/ASIN in your inventory.` : ''}`);
+  };
+  reader.readAsText(file);
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
