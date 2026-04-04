@@ -7,7 +7,7 @@
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
   <title>Amazon Inventory Tracker</title>
-  <link rel="stylesheet" href="styles.css?v=3" />
+  <link rel="stylesheet" href="styles.css?v=4" />
 </head>
 <body>
   <!-- Header -->
@@ -21,8 +21,14 @@
     </div>
     <div class="header-right">
       <button class="btn btn-primary" id="addProductBtn">+ Add Product</button>
-      <button class="btn btn-secondary" id="importBtn">Import CSV</button>
+      <div class="import-group">
+        <button class="btn btn-secondary" id="importBtn">Import Inventory</button>
+        <button class="btn btn-secondary" id="importAuraBtn">Import Aura</button>
+        <button class="btn btn-secondary" id="importCogsBtn">Import COGS</button>
+      </div>
       <input type="file" id="csvFileInput" accept=".csv,.txt,.tsv,text/plain,text/csv" style="display:none" />
+      <input type="file" id="auraFileInput" accept=".csv,.txt,.tsv,text/plain,text/csv" style="display:none" />
+      <input type="file" id="cogsFileInput" accept=".csv,.txt,.tsv,text/plain,text/csv" style="display:none" />
     </div>
   </header>
 
@@ -130,7 +136,11 @@
             <th class="sortable" data-col="quantity">Qty <span class="sort-arrow">&#8597;</span></th>
             <th class="sortable" data-col="reorderPoint">Reorder At <span class="sort-arrow">&#8597;</span></th>
             <th class="sortable" data-col="price">Price <span class="sort-arrow">&#8597;</span></th>
+            <th class="sortable" data-col="minPrice">Min <span class="sort-arrow">&#8597;</span></th>
+            <th class="sortable" data-col="maxPrice">Max <span class="sort-arrow">&#8597;</span></th>
+            <th class="sortable" data-col="buyBoxPrice">Buy Box <span class="sort-arrow">&#8597;</span></th>
             <th class="sortable" data-col="cost">Cost <span class="sort-arrow">&#8597;</span></th>
+            <th class="sortable" data-col="strategy">Strategy <span class="sort-arrow">&#8597;</span></th>
             <th class="sortable" data-col="status">Status <span class="sort-arrow">&#8597;</span></th>
             <th>Actions</th>
           </tr>
@@ -203,8 +213,24 @@
               <span class="field-error" id="errPrice"></span>
             </div>
             <div class="form-group">
-              <label for="fieldCost">Unit Cost ($)</label>
+              <label for="fieldCost">Unit Cost / COGS ($)</label>
               <input type="number" id="fieldCost" min="0" step="0.01" placeholder="0.00" />
+            </div>
+            <div class="form-group">
+              <label for="fieldMinPrice">Aura Min Price ($)</label>
+              <input type="number" id="fieldMinPrice" min="0" step="0.01" placeholder="0.00" />
+            </div>
+            <div class="form-group">
+              <label for="fieldMaxPrice">Aura Max Price ($)</label>
+              <input type="number" id="fieldMaxPrice" min="0" step="0.01" placeholder="0.00" />
+            </div>
+            <div class="form-group">
+              <label for="fieldBuyBoxPrice">Buy Box Price ($)</label>
+              <input type="number" id="fieldBuyBoxPrice" min="0" step="0.01" placeholder="0.00" />
+            </div>
+            <div class="form-group">
+              <label for="fieldStrategy">Aura Strategy</label>
+              <input type="text" id="fieldStrategy" placeholder="e.g. Sales Velocity" />
             </div>
             <div class="form-group">
               <label for="fieldStatus">Status</label>
@@ -244,6 +270,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=3"></script>
+  <script src="app.js?v=4"></script>
 </body>
 </html>
